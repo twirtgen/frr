@@ -19,7 +19,6 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_attr.h"
-#include "bgpd/utlist.h"
 #include "bgpd/bgp_memory.h"
 
 #ifndef VTYSH_EXTRACT_PL
