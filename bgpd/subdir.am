@@ -16,6 +16,7 @@ vtysh_scan += \
 	bgpd/bgp_labelpool.c \
 	bgpd/bgp_mplsvpn.c \
 	bgpd/bgp_nexthop.c \
+	bgpd/bgp_path_validation.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_vty.c \
@@ -87,6 +88,7 @@ bgpd_libbgp_a_SOURCES = \
 	bgpd/bgp_nht.c \
 	bgpd/bgp_open.c \
 	bgpd/bgp_packet.c \
+	bgpd/bgp_path_validation.c \
 	bgpd/bgp_pbr.c \
 	bgpd/bgp_rd.c \
 	bgpd/bgp_regex.c \
@@ -232,6 +234,7 @@ clippy_scan += \
 	bgpd/bgp_bmp.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_evpn_vty.c \
+	bgpd/bgp_path_validation.c \
 	bgpd/bgp_route.c \
 	bgpd/bgp_routemap.c \
 	bgpd/bgp_rpki.c \

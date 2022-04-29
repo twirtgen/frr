@@ -552,6 +552,7 @@ class Config(object):
             "rpki": {},
             "bfd": {"peer ": {}, "profile ": {}},
             "line vty": {},
+            "path-validation": {},
         }
 
         # stack of context keys

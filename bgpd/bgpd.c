@@ -92,6 +92,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
+#include "bgp_path_validation.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
@@ -7972,6 +7973,8 @@ void bgp_init(unsigned short instance)
 
 	/* BGP VTY commands installation.  */
 	bgp_vty_init();
+
+	bgp_path_validation_init(bm->master);
 
 	/* BGP inits. */
 	bgp_attr_init();

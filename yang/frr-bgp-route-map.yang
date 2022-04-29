@@ -66,6 +66,12 @@ module frr-bgp-route-map {
       "Control rpki specific settings";
   }
 
+  identity path-validation {
+      base frr-route-map:rmap-match-type;
+      description
+        "Control path-validation specific settings";
+    }
+
   identity probability {
     base frr-route-map:rmap-match-type;
     description
@@ -419,6 +425,29 @@ module frr-bgp-route-map {
             value 2;
             description
               "Valid prefix";
+          }
+        }
+      }
+    }
+
+    case path-validation {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:path-validation')";
+      leaf path-validation {
+        type enumeration {
+          enum "invalid" {
+            value 0;
+            description
+              "Invalid prefix";
+          }
+          enum "valid" {
+            value 1;
+            description
+              "Valid prefix";
+          }
+          enum "pending" {
+            value 2;
+            description
+              "Prefix waiting to be validated";
           }
         }
       }

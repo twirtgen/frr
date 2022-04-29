@@ -1535,6 +1535,13 @@ static struct cmd_node rpki_node = {
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-rpki)# ",
 };
+
+static struct cmd_node path_validation_node = {
+	.name = "path-validation",
+	.node = PATH_VALIDATION_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-path-validation)# ",
+};
 #endif /* HAVE_BGPD */
 
 #if HAVE_BFDD > 0
@@ -1751,6 +1758,16 @@ DEFUNSH(VTYSH_BGPD,
 	"Enable rpki and enter rpki configuration mode\n")
 {
 	vty->node = RPKI_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+	path_validation,
+	   path_validation_cmd,
+	   "path-validation",
+	   "Enable path validation and enter path-configuration mode\n"
+) {
+	vty->node =  PATH_VALIDATION_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2315,6 +2332,19 @@ DEFUNSH(VTYSH_BGPD, bmp_quit, bmp_quit_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
 {
 	return bmp_exit(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_BGPD, path_validation_exit, path_validation_exit_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	vtysh_exit(vty);
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD, path_validation_quit, path_validation_quit_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return path_validation_exit(self, vty, argc, argv);
 }
 #endif /* HAVE_BGPD */
 
@@ -4115,6 +4145,12 @@ void vtysh_init_vty(void)
 	install_element(RPKI_NODE, &rpki_exit_cmd);
 	install_element(RPKI_NODE, &rpki_quit_cmd);
 	install_element(RPKI_NODE, &vtysh_end_all_cmd);
+
+	install_node(&path_validation_node);
+	install_element(CONFIG_NODE, &path_validation_cmd);
+	install_element(PATH_VALIDATION_NODE, &path_validation_exit_cmd);
+	install_element(PATH_VALIDATION_NODE, &path_validation_quit_cmd);
+	install_element(PATH_VALIDATION_NODE, &vtysh_end_all_cmd);
 
 	install_node(&bmp_node);
 	install_element(BGP_NODE, &bmp_targets_cmd);
