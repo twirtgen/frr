@@ -372,7 +372,7 @@ DEFUN_YANG (match_path_validation,
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value),
-		 "%s/rmap-match-condition/frr-bgp-route-map:path-validation/path-validation-type", xpath);
+		 "%s/rmap-match-condition/frr-bgp-route-map:path-validation", xpath);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[2]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
