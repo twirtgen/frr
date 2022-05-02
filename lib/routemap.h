@@ -280,6 +280,7 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_MATCH_ORIGIN(C)                                                     \
 	(strmatch(C, "frr-bgp-route-map:match-origin"))
 #define IS_MATCH_RPKI(C) (strmatch(C, "frr-bgp-route-map:rpki"))
+#define IS_MATCH_PATH_VALIDATION(C) (strmatch(C, "frr-bgp-route-map:path-validation"))
 #define IS_MATCH_PROBABILITY(C)                                                \
 	(strmatch(C, "frr-bgp-route-map:probability"))
 #define IS_MATCH_SRC_VRF(C)                                                    \

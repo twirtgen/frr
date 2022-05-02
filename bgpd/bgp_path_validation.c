@@ -144,7 +144,7 @@ int bgp_path_validation_init(struct thread_master *master) {
 	return 0;
 }
 
-int bgp_path_validation_run(void) {
+void bgp_path_validation_run(void) {
 	frr_pthread_run(bgp_pth_pval, NULL);
 	frr_pthread_wait_running(bgp_pth_pval);
 }
@@ -367,7 +367,7 @@ DEFUN_YANG (match_path_validation,
 	   "The prefix is not in cache and will be validated async\n")
 {
 	const char *xpath =
-		"./match-condition[condition='frr-bgp-route-map:match-path-validation']";
+		"./match-condition[condition='frr-bgp-route-map:path-validation']";
 	char xpath_value[XPATH_MAXLEN];
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -390,7 +390,7 @@ DEFUN_YANG (no_match_path_validation,
 	   "The prefix is not in cache and will be validated async\n")
 {
 	const char *xpath =
-		"./match-condition[condition='frr-bgp-route-map:match-path-validation']";
+		"./match-condition[condition='frr-bgp-route-map:path-validation']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	return nb_cli_apply_changes(vty, NULL);
