@@ -130,8 +130,6 @@ static void bgp_path_validation_thread_init(void) {
 	bgp_pth_pval = frr_pthread_new(&pval, "BGP Path Validation thread",
 				       "bgp_pval");
 
-	frr_pthread_run(bgp_pth_pval, NULL);
-	frr_pthread_wait_running(bgp_pth_pval);
 }
 
 
@@ -144,6 +142,11 @@ int bgp_path_validation_init(struct thread_master *master) {
 	bgp_path_validation_thread_init();
 	fprintf(stderr, "BGP Path validation initialized !\n");
 	return 0;
+}
+
+int bgp_path_validation_run(void) {
+	frr_pthread_run(bgp_pth_pval, NULL);
+	frr_pthread_wait_running(bgp_pth_pval);
 }
 
 struct my_lcom {
@@ -378,13 +381,13 @@ DEFUN_YANG (match_path_validation,
 
 DEFUN_YANG (no_match_path_validation,
 	   no_match_path_validation_cmd,
-	   "match path-validation <valid|invalid|timeout>",
+	   "no match path-validation <valid|invalid|pending>",
 	   NO_STR
 	   MATCH_STR
 	   PATH_VALIDATION_STRING
 	   "Valid prefix\n"
 	   "Invalid prefix\n"
-	   "Prefix not found\n")
+	   "The prefix is not in cache and will be validated async\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:match-path-validation']";

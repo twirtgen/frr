@@ -18,4 +18,6 @@ enum path_validation_states {
 
 int bgp_path_validation_init(struct thread_master *master);
 
+int bgp_path_validation_run(void);
+
 #endif // FRR_DATAPLANE_BGP_PATH_VALIDATION_H

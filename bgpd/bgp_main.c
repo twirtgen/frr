@@ -68,6 +68,7 @@
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
+#include "bgp_path_validation.h"
 #endif
 
 /* bgpd options, we use GNU getopt library. */
@@ -516,6 +517,7 @@ int main(int argc, char **argv)
 	/* must be called after fork() */
 	bgp_gr_apply_running_config();
 	bgp_pthreads_run();
+	bgp_path_validation_run();
 	frr_run(bm->master);
 
 	/* Not reached. */

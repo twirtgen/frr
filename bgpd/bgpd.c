@@ -7974,8 +7974,6 @@ void bgp_init(unsigned short instance)
 	/* BGP VTY commands installation.  */
 	bgp_vty_init();
 
-	bgp_path_validation_init(bm->master);
-
 	/* BGP inits. */
 	bgp_attr_init();
 	bgp_debug_init();
@@ -8015,6 +8013,7 @@ void bgp_init(unsigned short instance)
 	bgp_lp_vty_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
+	bgp_path_validation_init(bm->master);
 }
 
 void bgp_terminate(void)
