@@ -66,6 +66,13 @@ const struct frr_yang_module_info frr_bgp_route_map_info = {
 				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_rpki_destroy,
 			}
 		},
+                {
+			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:path-validation",
+			.cbs = {
+				.modify = lib_route_map_entry_match_condition_rmap_match_condition_path_validation_modify,
+				.destroy = lib_route_map_entry_match_condition_rmap_match_condition_path_validation_destroy,
+			}
+		},
 		{
 			.xpath = "/frr-route-map:lib/route-map/entry/match-condition/rmap-match-condition/frr-bgp-route-map:probability",
 			.cbs = {
