@@ -28,7 +28,7 @@
 #define RETRIES_DEFAULT 3
 #define TIMEOUT_DEFAULT_MS 300
 
-#define PATH_VALIDATION_STRING "Validate path with TLS server contained in large community\n"
+#define PATH_VALIDATION_STRING "Validate path with TLS/PING server contained in large community\n"
 
 
 struct pval_arg {
@@ -37,10 +37,17 @@ struct pval_arg {
 	const struct prefix *pfx;
 };
 
+enum validation_method {
+	VALIDATION_METHOD_TLS,
+	VALIDATION_METHOD_PING,
+	VALIDATION_METHOD_MAX,
+};
+
 static struct frr_pthread *bgp_pth_pval = NULL;
 
 static unsigned int retries_number;
 static unsigned int timeout_ms;
+static enum validation_method v_method;
 
 static int config_write(struct vty *vty);
 static int config_on_exit(struct vty *vty);
@@ -86,7 +93,9 @@ static int process_path_validation(struct thread *thread) {
 	}
 
 
-	fprintf(stderr, "Contacting TLS server %s for prefix %s\n",
+	fprintf(stderr, "Contacting %s server %s for prefix %s\n",
+		v_method == VALIDATION_METHOD_PING ? "ping":
+		v_method == VALIDATION_METHOD_TLS ? "tls" : "???",
 		addr, prefix2str(arg->pfx, pfx, sizeof(pfx)));
 
 
@@ -99,10 +108,22 @@ static int config_write(struct vty *vty) {
 	vty_out(vty, "!\n");
 	vty_out(vty, "path-validation\n");
 
+	switch (v_method) {
+	case VALIDATION_METHOD_TLS:
+		vty_out(vty, " path-validation method tls\n");
+		break;
+	case VALIDATION_METHOD_PING:
+		vty_out(vty, " path-validation method ping\n");
+		break;
+	case VALIDATION_METHOD_MAX:
+	default:
+		break;
+	}
+
 	if (retries_number != RETRIES_DEFAULT)
-		vty_out(vty, "path-validation retries %u\n", retries_number);
+		vty_out(vty, " path-validation retries %u\n", retries_number);
 	if (timeout_ms != TIMEOUT_DEFAULT_MS)
-		vty_out(vty, "path-validation timeout %u\n", timeout_ms);
+		vty_out(vty, " path-validation timeout %u\n", timeout_ms);
 
 	vty_out(vty, "exit");
 	return 1;
@@ -136,6 +157,7 @@ static void bgp_path_validation_thread_init(void) {
 int bgp_path_validation_init(struct thread_master *master) {
 	retries_number = RETRIES_DEFAULT;
 	timeout_ms = TIMEOUT_DEFAULT_MS;
+	v_method = VALIDATION_METHOD_PING;
 
 	install_cli_commands();
 
@@ -344,6 +366,37 @@ DEFPY (path_validation_timeout,
 	return CMD_SUCCESS;
 }
 
+DEFPY (path_validation_method,
+      path_validation_method_cmd,
+      "path-validation method <tls|ping>$method",
+      PATH_VALIDATION_STRING
+      "Set path validation method\n"
+      "Use TLS validation\n"
+      "Use ICMP ping validation\n")
+{
+	if (strcmp("tls", method) == 0) {
+		v_method = VALIDATION_METHOD_TLS;
+	} else if (strcmp("ping", method) == 0) {
+		v_method = VALIDATION_METHOD_PING;
+	} else {
+		v_method = VALIDATION_METHOD_MAX;
+		return CMD_ERR_NO_MATCH;
+	}
+	return CMD_SUCCESS;
+}
+
+
+DEFUN (no_path_validation_method,
+      no_path_validation_method_cmd,
+      "no path-validation method",
+      NO_STR
+      PATH_VALIDATION_STRING
+      "Unset path validation method. Default will be ping\n")
+{
+	v_method = VALIDATION_METHOD_PING;
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_path_validation_timeout,
       no_path_validation_timeout_cmd,
       "no path-validation timeout",
@@ -410,6 +463,10 @@ static void install_cli_commands(void) {
 	/* Install timeout command */
 	install_element(PATH_VALIDATION_NODE, &path_validation_timeout_cmd);
 	install_element(PATH_VALIDATION_NODE, &no_path_validation_timeout_cmd);
+
+	/* Install path validation method command */
+	install_element(PATH_VALIDATION_NODE, &path_validation_method_cmd);
+	install_element(PATH_VALIDATION_NODE, &no_path_validation_method_cmd);
 
 	/* Install route match */
 	route_map_install_match(&route_match_path_validation_cmd);
