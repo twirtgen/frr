@@ -198,20 +198,16 @@ static int process_path_validation(struct thread *thread) {
 	if (valid_path((struct sockaddr *)&arg->saddr)) {
 		/* the path is valid */
 		arg->pfx_v->status = PATH_VALIDATION_VALID;
-		(void)bgp_update(p_info->peer, &p_info->net->p,
-				 p_info->addpath_rx_id, p_info->attr,
-				 AFI_IP, SAFI_UNICAST, /* todo refactor later */
-				 p_info->type, p_info->sub_type, NULL,
-				 mpls_label, num_labels, 1, NULL);
+
 	} else {
 		arg->pfx_v->status = PATH_VALIDATION_INVALID;
-		(void) bgp_withdraw(p_info->peer, &p_info->net->p,
-				   p_info->addpath_rx_id, p_info->attr,
-				   AFI_IP, SAFI_UNICAST,
-				   p_info->type, p_info->sub_type, NULL,
-				   mpls_label, num_labels, NULL);
-
 	}
+
+	(void)bgp_update(p_info->peer, &p_info->net->p,
+			 p_info->addpath_rx_id, p_info->attr,
+			 AFI_IP, SAFI_UNICAST, /* todo refactor later */
+			 p_info->type, p_info->sub_type, NULL,
+			 mpls_label, num_labels, 1, NULL);
 
 end:
 	free(arg);
