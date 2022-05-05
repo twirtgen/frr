@@ -444,10 +444,10 @@ module frr-bgp-route-map {
             description
               "Valid prefix";
           }
-          enum "pending" {
+          enum "unknown" {
             value 2;
             description
-              "Prefix waiting to be validated";
+              "Validation was not explicitly requested for this prefix";
           }
         }
       }
