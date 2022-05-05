@@ -209,6 +209,8 @@ static int process_path_validation(struct thread *thread) {
 			 p_info->type, p_info->sub_type, NULL,
 			 mpls_label, num_labels, 1, NULL);
 
+	bgp_path_info_unlock(p_info);
+
 end:
 	free(arg);
 	return 0;
@@ -438,6 +440,8 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 		.p_info = path,
 		.saddr = addr,
 	};
+	/* inc reference count */
+	bgp_path_info_lock(path);
 
 	/* there is a match, push the sockaddr to a queue for validation */
 	thread_add_event(bgp_pth_pval->master,
