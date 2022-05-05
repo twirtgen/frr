@@ -47,7 +47,6 @@ struct prefix_validation_status {
 
 struct pval_arg {
 	struct sockaddr_storage saddr;
-	struct bgp_path_info *p_info;
 	struct prefix_validation_status *pfx_v;
 };
 
@@ -147,17 +146,66 @@ static void *pfx_hash_alloc(void *arg) {
 	return nprefix;
 }
 
+static void validate_bgp_node(struct bgp_node *bgp_node, afi_t afi, safi_t safi) {
+	struct bgp_adj_in *ain;
+
+	for (ain = bgp_node->adj_in; ain; ain = ain->next) {
+		struct bgp_path_info *path =
+			bgp_dest_get_bgp_path_info(bgp_node);
+		mpls_label_t *label = NULL;
+		uint32_t num_labels = 0;
+
+		if (path && path->extra) {
+			label = path->extra->label;
+			num_labels = path->extra->num_labels;
+		}
+		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_node),
+				 ain->addpath_rx_id, ain->attr, afi, safi,
+				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
+				 num_labels, 1, NULL);
+	}
+}
+
+static void validate_prefix(const struct prefix *pfx) {
+	afi_t afi;
+	safi_t safi;
+	struct listnode *node;
+	struct bgp *bgp;
+	struct bgp_node *match;
+	struct bgp_node *match_node;
+
+	afi = pfx->family == AF_INET ? AFI_IP : AFI_IP6;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+		for (safi=SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+			if (!bgp->rib[afi][safi])
+				continue;
+
+			match = bgp_table_subtree_lookup(bgp->rib[afi][safi],
+							 pfx);
+
+			match_node = match;
+			while (match_node) {
+				if (bgp_dest_has_bgp_path_info_data(match_node)) {
+					validate_bgp_node(match_node,
+							  afi, safi);
+				}
+				match_node = bgp_route_next_until(match_node,
+								  match);
+			}
+		}
+	}
+}
+
 static int process_path_validation(struct thread *thread) {
 	struct pval_arg *arg;
 	char addr[45];
 	char pfx[PREFIX2STR_BUFFER];
 	uint16_t port;
 
-	struct bgp_path_info *p_info;
 	//struct prefix_validation_status pval;
 
 	arg = THREAD_ARG(thread);
-	p_info = arg->p_info;
 
 	if (arg->saddr.ss_family == AF_INET) {
 		inet_ntop(AF_INET,
@@ -186,30 +234,14 @@ static int process_path_validation(struct thread *thread) {
 		fprintf(stderr, "Set port failed !");
 	}
 
-	struct bgp_path_info_extra *p_extra;
-	mpls_label_t *mpls_label = NULL;
-	uint32_t num_labels = 0;
-	p_extra = p_info->extra;
-	if (p_extra) {
-		mpls_label = p_extra->label;
-		num_labels = p_extra->num_labels;
-	}
-
 	if (valid_path((struct sockaddr *)&arg->saddr)) {
 		/* the path is valid */
 		arg->pfx_v->status = PATH_VALIDATION_VALID;
-
 	} else {
 		arg->pfx_v->status = PATH_VALIDATION_INVALID;
 	}
 
-	(void)bgp_update(p_info->peer, &p_info->net->p,
-			 p_info->addpath_rx_id, p_info->attr,
-			 AFI_IP, SAFI_UNICAST, /* todo refactor later */
-			 p_info->type, p_info->sub_type, NULL,
-			 mpls_label, num_labels, 1, NULL);
-
-	bgp_path_info_unlock(p_info);
+	validate_prefix(arg->pfx_v->p);
 
 end:
 	free(arg);
@@ -437,7 +469,6 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	arg = XMALLOC(MTYPE_PATH_VALIDATION_THREAD_ARG, sizeof(*arg));
 	*arg = (struct pval_arg) {
 		.pfx_v = hash_pfx,
-		.p_info = path,
 		.saddr = addr,
 	};
 	/* inc reference count */
