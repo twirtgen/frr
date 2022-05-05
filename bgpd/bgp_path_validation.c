@@ -433,13 +433,8 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 			return hash_pfx->status == PATH_VALIDATION_VALID
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
-
 		} else if (*path_validation_status == PATH_VALIDATION_INVALID) {
 			return hash_pfx->status == PATH_VALIDATION_INVALID
-				       ? RMAP_MATCH
-				       : RMAP_NOMATCH;
-		} else if (*path_validation_status == PATH_VALIDATION_PENDING) {
-			return hash_pfx->status == PATH_VALIDATION_PENDING
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
 		} else {
@@ -451,13 +446,18 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	bgp_attr = path->attr;
 
 	/* no match if no large bgp communities */
-	if (!(bgp_attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)))
+	if (!(bgp_attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
+		if (*path_validation_status == PATH_VALIDATION_UNKNOWN)
+			return RMAP_MATCH;
 		return RMAP_NOMATCH;
+	}
 
 
 	/* check if we need to check the path */
 	lcommunity = bgp_attr->lcommunity;
 	if (!match_large_communities(lcommunity, (struct sockaddr *) &addr)) {
+		if (*path_validation_status == PATH_VALIDATION_UNKNOWN)
+			return RMAP_MATCH;
 		return RMAP_NOMATCH;
 	}
 
@@ -478,7 +478,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	thread_add_event(bgp_pth_pval->master,
 			 process_path_validation, arg, 0, NULL);
 
-	return *path_validation_status == PATH_VALIDATION_PENDING ? RMAP_MATCH : RMAP_NOMATCH;
+	return RMAP_NOMATCH;
 }
 
 
@@ -493,7 +493,7 @@ static void *route_match_compile(const char *arg)
 	else if (strcmp(arg, "invalid") == 0)
 		*path_validation_status = PATH_VALIDATION_INVALID;
 	else
-		*path_validation_status = PATH_VALIDATION_PENDING;
+		*path_validation_status = PATH_VALIDATION_UNKNOWN;
 
 	return path_validation_status;
 }
@@ -643,12 +643,12 @@ DEFUN (no_path_validation_timeout,
 
 DEFUN_YANG (match_path_validation,
 	   match_path_validation_cmd,
-	   "match path-validation <valid|invalid|pending>",
+	   "match path-validation <valid|invalid|unknown>",
 	   MATCH_STR
 	   PATH_VALIDATION_STRING
 	   "Valid prefix, the TLS server responds\n"
 	   "Invalid prefix, the TLS servers is not valid\n"
-	   "The prefix is not in cache and will be validated async\n")
+	   "Unknown prefix (validation was not explicitly requested)\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:path-validation']";
