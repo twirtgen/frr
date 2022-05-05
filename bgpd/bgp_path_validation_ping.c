@@ -48,7 +48,7 @@ static unsigned short checksum(void *b, int len) {
 
 // make a ping request
 int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
-	      unsigned int retries, struct interface *interface) {
+	      unsigned int retries, const char *iface_name) {
 	unsigned int i;
 	int ttl_val = 64, msg_count = 0, flag,
 	    msg_received_count = 0;
@@ -81,11 +81,11 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 
 	// set output interface
 	if (setsockopt(
-		    ping_sockfd, SOL_SOCKET, SO_BINDTODEVICE, interface->name,
-		    strnlen(interface->name, sizeof(interface->name))) == -1) {
+		    ping_sockfd, SOL_SOCKET, SO_BINDTODEVICE, iface_name,
+		    strnlen(iface_name, IF_NAMESIZE)) == -1) {
 		err = strerror(errno);
 		fprintf(stderr, "PING SO_BINDTODEVICE %s error: %s\n",
-			interface->name, err);
+			iface_name, err);
 
 		return -1;
 	}

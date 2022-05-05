@@ -8,6 +8,7 @@
 
 #include <sys/socket.h>
 #include <sys/eventfd.h>
+#include <ifaddrs.h>
 
 #include "command.h"
 #include "lib/yang.h"
@@ -55,7 +56,7 @@ static struct frr_pthread *bgp_pth_pval = NULL;
 static unsigned int retries_number;
 static unsigned int timeout_ms;
 static enum validation_method v_method;
-static struct interface out_iface;
+static char out_iface[IF_NAMESIZE + 1];
 
 static struct hash *validated_pfx = NULL;
 
@@ -121,7 +122,7 @@ static int valid_path(struct sockaddr *saddr) {
 		break;
 	case VALIDATION_METHOD_PING:
 		return send_ping( &sock_in /*(struct sockaddr_in *)saddr*/, timeout_ms * 1000,
-			  retries_number, &out_iface) == 0;
+			  retries_number, out_iface) == 0;
 
 		break;
 	case VALIDATION_METHOD_MAX:
@@ -547,22 +548,51 @@ DEFUN (no_path_validation_method,
 	return CMD_SUCCESS;
 }
 
+static inline int check_iface(const char *name) {
+	int ret;
+	struct ifaddrs *addrs = NULL;
+	struct ifaddrs *tmp;
+
+	if (getifaddrs(&addrs) != 0) {
+		return -1;
+	}
+
+	tmp = addrs;
+	ret = -1;
+
+	while (tmp) {
+		if (tmp->ifa_addr && tmp->ifa_addr->sa_family == AF_PACKET) {
+			if (strncmp(tmp->ifa_name, name, IF_NAMESIZE) == 0) {
+				ret = 0;
+				goto end;
+			}
+		}
+
+		tmp = tmp->ifa_next;
+	}
+
+end:
+	if (addrs) {
+		freeifaddrs(addrs);
+	}
+	return ret; // interface not found
+}
+
 
 DEFPY (path_validation_iface,
       path_validation_iface_cmd,
       "path-validation interface WORD$interface",
       PATH_VALIDATION_STRING
-      "Set path validation interface\n")
+      "Set path validation interface\n"
+      "The name of the interface to send path validation messages\n")
 {
-	struct interface *iface;
-	iface = if_lookup_by_name(interface, VRF_DEFAULT);
-
-	if (!iface) {
+	if (check_iface(interface) != 0) {
 		vty_out(vty, "Interface %s not found !\n", interface);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	out_iface = *iface;
+	memset(out_iface, 0, sizeof(out_iface));
+	strncpy(out_iface, interface, sizeof(out_iface) -1);
 	return CMD_SUCCESS;
 }
 

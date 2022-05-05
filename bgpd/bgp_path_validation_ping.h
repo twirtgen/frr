@@ -17,6 +17,6 @@
  *         -1 if error or not pingable
  */
 int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
-	      unsigned int retries, struct interface *interface);
+	      unsigned int retries, const char *iface_name);
 
 #endif // FRR_DATAPLANE_BGP_PATH_VALIDATION_PING_H
