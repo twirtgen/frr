@@ -4,6 +4,8 @@
 
 #include "bgp_path_validation.h"
 
+#include <assert.h>
+
 #include <sys/socket.h>
 #include <sys/eventfd.h>
 
@@ -20,6 +22,7 @@
 #include "bgpd/bgp_lcommunity.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_path_validation_ping.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_path_validation_clippy.c"
@@ -30,17 +33,21 @@
 
 #define PATH_VALIDATION_STRING "Validate path with TLS/PING server contained in large community\n"
 
-
-struct pval_arg {
-	struct sockaddr_storage saddr;
-	struct bgp_path_info *p_info;
-	const struct prefix *pfx;
-};
-
 enum validation_method {
 	VALIDATION_METHOD_TLS,
 	VALIDATION_METHOD_PING,
 	VALIDATION_METHOD_MAX,
+};
+
+struct prefix_validation_status {
+	enum path_validation_states status;
+	const struct prefix *p;
+};
+
+struct pval_arg {
+	struct sockaddr_storage saddr;
+	struct bgp_path_info *p_info;
+	struct prefix_validation_status *pfx_v;
 };
 
 static struct frr_pthread *bgp_pth_pval = NULL;
@@ -48,6 +55,9 @@ static struct frr_pthread *bgp_pth_pval = NULL;
 static unsigned int retries_number;
 static unsigned int timeout_ms;
 static enum validation_method v_method;
+static struct interface out_iface;
+
+static struct hash *validated_pfx = NULL;
 
 static int config_write(struct vty *vty);
 static int config_on_exit(struct vty *vty);
@@ -73,12 +83,80 @@ static const struct route_map_rule_cmd route_match_path_validation_cmd = {
 	"path-validation", route_match, route_match_compile, route_match_free};
 
 
+static int set_port(struct sockaddr *saddr, uint16_t port) {
+	struct sockaddr_in *saddr4;
+	struct sockaddr_in6 *saddr6;
+
+	switch (saddr->sa_family) {
+	case AF_INET:
+		saddr4 = (struct sockaddr_in *) saddr;
+		saddr4->sin_port = htobe16(port);
+		break;
+	case AF_INET6:
+		saddr6 = (struct sockaddr_in6 *) saddr;
+		saddr6->sin6_port = htobe16(port);
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+
+
+static int valid_path(struct sockaddr *saddr) {
+
+	/* debug purpose */
+	struct sockaddr_in sock_in;
+
+	sock_in.sin_family = AF_INET;
+	sock_in.sin_port = 0;
+	inet_pton(AF_INET, "10.0.0.6", &sock_in.sin_addr);
+	/* end debug purpose */
+
+
+	switch (v_method) {
+	case VALIDATION_METHOD_TLS:
+		assert(0 && "TLS validation not yet supported !");
+		break;
+	case VALIDATION_METHOD_PING:
+		return send_ping( &sock_in /*(struct sockaddr_in *)saddr*/, timeout_ms * 1000,
+			  retries_number, &out_iface) == 0;
+
+		break;
+	case VALIDATION_METHOD_MAX:
+	default:
+		return 0;
+	}
+
+	return 1;
+}
+
+static void *pfx_hash_alloc(void *arg) {
+	const struct prefix_validation_status *pfx;
+	struct prefix_validation_status *nprefix;
+	pfx = arg;
+
+	nprefix = XMALLOC(MTYPE_PREFIX_VALIDATION_STATUS, sizeof(*nprefix));
+	nprefix->p = prefix_new();
+
+	nprefix->status = pfx->status;
+	memcpy(nprefix->p, pfx->p, sizeof(*pfx->p));
+
+	return nprefix;
+}
+
 static int process_path_validation(struct thread *thread) {
 	struct pval_arg *arg;
 	char addr[45];
 	char pfx[PREFIX2STR_BUFFER];
+	uint16_t port;
+
+	struct bgp_path_info *p_info;
+	struct prefix_validation_status pval;
 
 	arg = THREAD_ARG(thread);
+	p_info = arg->p_info;
 
 	if (arg->saddr.ss_family == AF_INET) {
 		inet_ntop(AF_INET,
@@ -88,17 +166,53 @@ static int process_path_validation(struct thread *thread) {
 		inet_ntop(AF_INET6,
 			  &((struct sockaddr_in6 *) &arg->saddr)->sin6_addr,
 			  addr, sizeof(addr));
+		fprintf(stderr, "IPv6 not yet supported\n");
+		goto end;
 	} else {
 		fprintf(stderr, "Unrecognized address family !\n");
+		goto end;
 	}
-
-
 	fprintf(stderr, "Contacting %s server %s for prefix %s\n",
 		v_method == VALIDATION_METHOD_PING ? "ping":
 		v_method == VALIDATION_METHOD_TLS ? "tls" : "???",
-		addr, prefix2str(arg->pfx, pfx, sizeof(pfx)));
+		addr, prefix2str(arg->pfx_v->p, pfx, sizeof(pfx)));
 
+	/* todo refactor later (avoid magic numbers) */
+	port = v_method == VALIDATION_METHOD_PING ? 0 :
+	       v_method == VALIDATION_METHOD_TLS ? 443 : 0;
 
+	if (set_port((struct sockaddr *)&arg->saddr, port) != 0) {
+		fprintf(stderr, "Set port failed !");
+	}
+
+	struct bgp_path_info_extra *p_extra;
+	mpls_label_t *mpls_label = NULL;
+	uint32_t num_labels = 0;
+	p_extra = p_info->extra;
+	if (p_extra) {
+		mpls_label = p_extra->label;
+		num_labels = p_extra->num_labels;
+	}
+
+	if (valid_path((struct sockaddr *)&arg->saddr)) {
+		/* the path is valid */
+		arg->pfx_v->status = PATH_VALIDATION_VALID;
+		(void)bgp_update(p_info->peer, &p_info->net->p,
+				 p_info->addpath_rx_id, p_info->attr,
+				 AFI_IP, SAFI_UNICAST, /* todo refactor later */
+				 p_info->type, p_info->sub_type, NULL,
+				 mpls_label, num_labels, 1, NULL);
+	} else {
+		arg->pfx_v->status = PATH_VALIDATION_INVALID;
+		(void) bgp_withdraw(p_info->peer, &p_info->net->p,
+				   p_info->addpath_rx_id, p_info->attr,
+				   AFI_IP, SAFI_UNICAST,
+				   p_info->type, p_info->sub_type, NULL,
+				   mpls_label, num_labels, NULL);
+
+	}
+
+end:
 	free(arg);
 	return 0;
 }
@@ -154,15 +268,28 @@ static void bgp_path_validation_thread_init(void) {
 }
 
 
+static bool pfx_hash_cmp(const void *a, const void *b) {
+	const struct prefix_validation_status *p_a = a;
+	const struct prefix_validation_status *p_b = b;
+	return prefix_cmp(p_a->p, p_b->p);
+}
+
+static unsigned int pfx_hash_key_make(const void *a) {
+	const struct prefix_validation_status *p_a = a;
+	return prefix_hash_key(&p_a->p);
+}
+
 int bgp_path_validation_init(struct thread_master *master) {
 	retries_number = RETRIES_DEFAULT;
 	timeout_ms = TIMEOUT_DEFAULT_MS;
 	v_method = VALIDATION_METHOD_PING;
 
+	validated_pfx = hash_create(pfx_hash_key_make, pfx_hash_cmp,
+				    "Validated Prefix");
+
 	install_cli_commands();
 
 	bgp_path_validation_thread_init();
-	fprintf(stderr, "BGP Path validation initialized !\n");
 	return 0;
 }
 
@@ -255,16 +382,40 @@ static int match_large_communities(struct lcommunity *lcom,
 }
 
 
-static enum route_map_cmd_result_t route_match(void *rule,
-					       const struct prefix *prefix,
-					       void *object) {
+static enum route_map_cmd_result_t
+route_match(void *rule, const struct prefix *prefix, void *object)
+{
 	int *path_validation_status = rule;
 	struct bgp_path_info *path;
 	struct attr *bgp_attr;
 	struct lcommunity *lcommunity;
 	struct sockaddr_storage addr;
 	struct pval_arg *arg;
+	struct prefix_validation_status *hash_pfx;
+	struct prefix_validation_status *pfx_v;
 
+	pfx_v->p = prefix;
+	hash_pfx = hash_get(validated_pfx, pfx_v, NULL);
+
+	if (hash_pfx) { /* if prefix is in cache */
+		if (*path_validation_status == PATH_VALIDATION_VALID) {
+			return hash_pfx->status == PATH_VALIDATION_VALID
+				       ? RMAP_MATCH
+				       : RMAP_NOMATCH;
+
+		} else if (*path_validation_status == PATH_VALIDATION_INVALID) {
+			return hash_pfx->status == PATH_VALIDATION_INVALID
+				       ? RMAP_MATCH
+				       : RMAP_NOMATCH;
+		} else if (*path_validation_status == PATH_VALIDATION_PENDING) {
+			return hash_pfx->status == PATH_VALIDATION_PENDING
+				       ? RMAP_MATCH
+				       : RMAP_NOMATCH;
+		} else {
+			return RMAP_NOMATCH;
+		}
+	}
+	/* the prefix is not in cache, trigger validation */
 	path = object;
 	bgp_attr = path->attr;
 
@@ -279,9 +430,13 @@ static enum route_map_cmd_result_t route_match(void *rule,
 		return RMAP_NOMATCH;
 	}
 
+	/* put the prefix in cache as "pending" */
+	hash_pfx = hash_get(validated_pfx, pfx_v, pfx_hash_alloc);
+	hash_pfx->status = PATH_VALIDATION_PENDING;
+
 	arg = XMALLOC(MTYPE_PATH_VALIDATION_THREAD_ARG, sizeof(*arg));
 	*arg = (struct pval_arg) {
-		.pfx = prefix,
+		.pfx_v = hash_pfx,
 		.p_info = path,
 		.saddr = addr,
 	};
@@ -289,12 +444,6 @@ static enum route_map_cmd_result_t route_match(void *rule,
 	/* there is a match, push the sockaddr to a queue for validation */
 	thread_add_event(bgp_pth_pval->master,
 			 process_path_validation, arg, 0, NULL);
-
-
-	/*if (rpki_validate_prefix(path->peer, path->attr, prefix)
-	    == *rpki_status) {
-		return RMAP_MATCH;
-	}*/
 
 	return *path_validation_status == PATH_VALIDATION_PENDING ? RMAP_MATCH : RMAP_NOMATCH;
 }
@@ -397,6 +546,26 @@ DEFUN (no_path_validation_method,
 	return CMD_SUCCESS;
 }
 
+
+DEFPY (path_validation_iface,
+      path_validation_iface_cmd,
+      "path-validation interface WORD$interface",
+      PATH_VALIDATION_STRING
+      "Set path validation interface\n")
+{
+	struct interface *iface;
+	iface = if_lookup_by_name(interface, VRF_DEFAULT);
+
+	if (!iface) {
+		vty_out(vty, "Interface %s not found !\n", interface);
+		return CMD_ERR;
+	}
+
+	*out_iface = *iface;
+	return CMD_SUCCESS;
+}
+
+
 DEFUN (no_path_validation_timeout,
       no_path_validation_timeout_cmd,
       "no path-validation timeout",
@@ -467,6 +636,9 @@ static void install_cli_commands(void) {
 	/* Install path validation method command */
 	install_element(PATH_VALIDATION_NODE, &path_validation_method_cmd);
 	install_element(PATH_VALIDATION_NODE, &no_path_validation_method_cmd);
+
+	/* Install path validation interface command */
+	install_element(PATH_VALIDATION_NODE, &path_validation_iface_cmd);
 
 	/* Install route match */
 	route_map_install_match(&route_match_path_validation_cmd);

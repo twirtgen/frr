@@ -9,6 +9,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <netinet/ip_icmp.h>
+#include <errno.h>
+
+#include "lib/if.h"
 
 #include "bgpd/bgp_path_validation_ping.h"
 
@@ -44,7 +47,8 @@ static unsigned short checksum(void *b, int len) {
 
 
 // make a ping request
-int send_ping(struct sockaddr_in *ping_addr, int timeout_us, int retries) {
+int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
+	      unsigned int retries, struct interface *interface) {
 	unsigned int i;
 	int ttl_val = 64, msg_count = 0, flag,
 	    msg_received_count = 0;
@@ -53,6 +57,7 @@ int send_ping(struct sockaddr_in *ping_addr, int timeout_us, int retries) {
 	struct sockaddr_in r_addr;
 	struct timeval tv_out;
 	socklen_t addr_len;
+	const char *err;
 
 	tv_out = (struct timeval) {
 		.tv_sec = 0,
@@ -71,6 +76,17 @@ int send_ping(struct sockaddr_in *ping_addr, int timeout_us, int retries) {
 	if (setsockopt(ping_sockfd, SOL_IP, IP_TTL, &ttl_val,
 		       sizeof(ttl_val)) != 0) {
 		printf("\nSetting socket options to TTL failed!\n");
+		return -1;
+	}
+
+	// set output interface
+	if (setsockopt(
+		    ping_sockfd, SOL_SOCKET, SO_BINDTODEVICE, interface->name,
+		    strnlen(interface->name, sizeof(interface->name))) == -1) {
+		err = strerror(errno);
+		fprintf(stderr, "PING SO_BINDTODEVICE %s error: %s\n",
+			interface->name, err);
+
 		return -1;
 	}
 

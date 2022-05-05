@@ -6,6 +6,7 @@
 #define FRR_DATAPLANE_BGP_PATH_VALIDATION_PING_H
 
 #include <netinet/in.h>
+#include "lib/if.h"
 
 /**
  * Send an ICMP packet and wait for the response.
@@ -15,6 +16,7 @@
  * @return  0 if the address is pingable
  *         -1 if error or not pingable
  */
-int send_ping(struct sockaddr_in *ping_addr, int timeout_us, int retries);
+int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
+	      unsigned int retries, struct interface *interface);
 
 #endif // FRR_DATAPLANE_BGP_PATH_VALIDATION_PING_H
