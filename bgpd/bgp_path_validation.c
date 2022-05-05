@@ -153,7 +153,7 @@ static int process_path_validation(struct thread *thread) {
 	uint16_t port;
 
 	struct bgp_path_info *p_info;
-	struct prefix_validation_status pval;
+	//struct prefix_validation_status pval;
 
 	arg = THREAD_ARG(thread);
 	p_info = arg->p_info;
@@ -558,10 +558,10 @@ DEFPY (path_validation_iface,
 
 	if (!iface) {
 		vty_out(vty, "Interface %s not found !\n", interface);
-		return CMD_ERR;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	*out_iface = *iface;
+	out_iface = *iface;
 	return CMD_SUCCESS;
 }
 
