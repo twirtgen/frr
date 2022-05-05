@@ -392,10 +392,10 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	struct sockaddr_storage addr;
 	struct pval_arg *arg;
 	struct prefix_validation_status *hash_pfx;
-	struct prefix_validation_status *pfx_v;
+	struct prefix_validation_status pfx_v;
 
-	pfx_v->p = prefix;
-	hash_pfx = hash_get(validated_pfx, pfx_v, NULL);
+	pfx_v.p = prefix;
+	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
 
 	if (hash_pfx) { /* if prefix is in cache */
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
@@ -431,7 +431,8 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	/* put the prefix in cache as "pending" */
-	hash_pfx = hash_get(validated_pfx, pfx_v, pfx_hash_alloc);
+	hash_pfx = hash_get(validated_pfx, &pfx_v, pfx_hash_alloc);
+	assert(hash_pfx != &pfx_v);
 	hash_pfx->status = PATH_VALIDATION_PENDING;
 
 	arg = XMALLOC(MTYPE_PATH_VALIDATION_THREAD_ARG, sizeof(*arg));
