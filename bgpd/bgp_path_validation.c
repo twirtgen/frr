@@ -277,7 +277,7 @@ static bool pfx_hash_cmp(const void *a, const void *b) {
 
 static unsigned int pfx_hash_key_make(const void *a) {
 	const struct prefix_validation_status *p_a = a;
-	return prefix_hash_key(&p_a->p);
+	return prefix_hash_key(p_a->p);
 }
 
 int bgp_path_validation_init(struct thread_master *master) {
