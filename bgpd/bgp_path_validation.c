@@ -476,8 +476,6 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 		.pfx_v = hash_pfx,
 		.saddr = addr,
 	};
-	/* inc reference count */
-	bgp_path_info_lock(path);
 
 	/* there is a match, push the sockaddr to a queue for validation */
 	thread_add_event(bgp_pth_pval->master,
