@@ -483,6 +483,8 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	thread_add_event(bgp_pth_pval->master,
 			 process_path_validation, arg, 0, NULL);
 
+	if (*path_validation_status == PATH_VALIDATION_UNKNOWN)
+		return RMAP_MATCH;
 	return RMAP_NOMATCH;
 }
 
