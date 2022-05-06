@@ -452,7 +452,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 
 	/* no match if no large bgp communities */
 	if (!(bgp_attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
-		if (*path_validation_status == PATH_VALIDATION_UNKNOWN)
+		if (*path_validation_status == PATH_VALIDATION_NOT_REQUESTED)
 			return RMAP_MATCH;
 		return RMAP_NOMATCH;
 	}
@@ -461,7 +461,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	/* check if we need to check the path */
 	lcommunity = bgp_attr->lcommunity;
 	if (!match_large_communities(lcommunity, (struct sockaddr *) &addr)) {
-		if (*path_validation_status == PATH_VALIDATION_UNKNOWN)
+		if (*path_validation_status == PATH_VALIDATION_NOT_REQUESTED)
 			return RMAP_MATCH;
 		return RMAP_NOMATCH;
 	}
@@ -499,8 +499,10 @@ static void *route_match_compile(const char *arg)
 		*path_validation_status = PATH_VALIDATION_VALID;
 	else if (strcmp(arg, "invalid") == 0)
 		*path_validation_status = PATH_VALIDATION_INVALID;
-	else
+	else if (strcmp(arg, "unknown") == 0)
 		*path_validation_status = PATH_VALIDATION_UNKNOWN;
+	else
+		*path_validation_status = PATH_VALIDATION_NOT_REQUESTED;
 
 	return path_validation_status;
 }
@@ -650,12 +652,13 @@ DEFUN (no_path_validation_timeout,
 
 DEFUN_YANG (match_path_validation,
 	   match_path_validation_cmd,
-	   "match path-validation <valid|invalid|unknown>",
+	   "match path-validation <valid|invalid|unknown|notrequested>",
 	   MATCH_STR
 	   PATH_VALIDATION_STRING
 	   "Valid prefix, the TLS server responds\n"
 	   "Invalid prefix, the TLS servers is not valid\n"
-	   "Unknown prefix (validation was not explicitly requested)\n")
+	   "Unknown prefix (path validation is pending and will be played)\n"
+	   "Path Validation not requested for this prefix\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:path-validation']";
@@ -672,7 +675,7 @@ DEFUN_YANG (match_path_validation,
 
 DEFUN_YANG (no_match_path_validation,
 	   no_match_path_validation_cmd,
-	   "no match path-validation <valid|invalid|pending>",
+	   "no match path-validation <valid|invalid|unknown>",
 	   NO_STR
 	   MATCH_STR
 	   PATH_VALIDATION_STRING

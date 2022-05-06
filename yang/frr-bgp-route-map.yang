@@ -447,8 +447,14 @@ module frr-bgp-route-map {
           enum "unknown" {
             value 2;
             description
-              "Validation was not explicitly requested for this prefix";
+              "The prefix is marked for validation but is not yet verified";
           }
+          enum "notrequested" {
+            value 3;
+            description
+              "The path validation is not requested for this prefix";
+          }
+
         }
       }
     }
