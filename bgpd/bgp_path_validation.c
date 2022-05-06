@@ -165,7 +165,7 @@ static void validate_bgp_node(struct bgp_node *bgp_node, afi_t afi, safi_t safi)
 	(void)bgp_update(path->peer, bgp_dest_get_prefix(bgp_node),
 			 path->addpath_rx_id, path->attr, afi, safi,
 			 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
-			 num_labels, 1, NULL);
+			 num_labels, 0, NULL);
 }
 
 static void validate_prefix(const struct prefix *pfx) {
