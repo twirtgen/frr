@@ -58,6 +58,8 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 	struct timeval tv_out;
 	socklen_t addr_len;
 	const char *err;
+	int ret = -1;
+	int ok = 0;
 
 	tv_out = (struct timeval) {
 		.tv_sec = 0,
@@ -65,10 +67,10 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 	};
 
 	// socket()
-	ping_sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+	ping_sockfd = socket(AF_INET, SOCK_RAW, 0);
 	if (ping_sockfd < 0) {
 		perror("socket SOCK_RAW IPPROTO_ICMP");
-		return -1;
+		goto end;
 	}
 
 
@@ -77,7 +79,7 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 	if (setsockopt(ping_sockfd, SOL_IP, IP_TTL, &ttl_val,
 		       sizeof(ttl_val)) != 0) {
 		printf("\nSetting socket options to TTL failed!\n");
-		return -1;
+		goto end;
 	}
 
 	// set output interface
@@ -87,16 +89,18 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 		err = strerror(errno);
 		fprintf(stderr, "PING SO_BINDTODEVICE %s error: %s\n",
 			iface_name, err);
-
-		return -1;
+		goto end;
 	}
 
 	// setting timeout of recv setting
-	setsockopt(ping_sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char *)&tv_out,
-		   sizeof tv_out);
+	if (setsockopt(ping_sockfd, SOL_SOCKET, SO_RCVTIMEO,
+		       (const char *)&tv_out, sizeof tv_out) != 0) {
+		perror("Setsockopt SOL_SOCKET SO_RCVTIMEO");
+		goto end;
+	}
 
 	// send icmp packet
-	while (retries > 0) {
+	while (retries > 0 && !ok) {
 		// flag is whether packet was sent or not
 		flag = 1;
 
@@ -135,10 +139,18 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 					       pckt.hdr.type, pckt.hdr.code);
 				} else {
 					msg_received_count++;
+					ok = 1;
 				}
 			}
 		}
 		retries -= 1;
 	}
-	return 0;
+
+	ret = 0;
+
+end:
+	if (ping_sockfd >= 0) {
+		close(ping_sockfd);
+	}
+	return ret;
 }
