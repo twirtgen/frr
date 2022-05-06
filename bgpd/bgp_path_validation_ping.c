@@ -67,7 +67,7 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 	};
 
 	// socket()
-	ping_sockfd = socket(AF_INET, SOCK_RAW, 0);
+	ping_sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_IP);
 	if (ping_sockfd < 0) {
 		perror("socket SOCK_RAW IPPROTO_ICMP");
 		goto end;
