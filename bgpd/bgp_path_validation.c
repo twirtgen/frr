@@ -434,7 +434,6 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
 
 	if (hash_pfx) { /* if prefix is in cache */
-		fprintf(stderr, "Prefix in the cache\n");
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
 			return hash_pfx->status == PATH_VALIDATION_VALID
 				       ? RMAP_MATCH
