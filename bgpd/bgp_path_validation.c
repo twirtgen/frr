@@ -265,6 +265,10 @@ static int config_write(struct vty *vty) {
 		break;
 	}
 
+	if (*out_iface != 0) {
+		vty_out(vty, " path-validation interface %s\n", out_iface);
+	}
+
 	if (retries_number != RETRIES_DEFAULT)
 		vty_out(vty, " path-validation retries %u\n", retries_number);
 	if (timeout_ms != TIMEOUT_DEFAULT_MS)
@@ -314,6 +318,7 @@ int bgp_path_validation_init(struct thread_master *master) {
 	retries_number = RETRIES_DEFAULT;
 	timeout_ms = TIMEOUT_DEFAULT_MS;
 	v_method = VALIDATION_METHOD_PING;
+	memset(out_iface, 0, sizeof(out_iface));
 
 	validated_pfx = hash_create(pfx_hash_key_make, pfx_hash_cmp,
 				    "Validated Prefix");
