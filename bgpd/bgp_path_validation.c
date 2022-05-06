@@ -42,7 +42,7 @@ enum validation_method {
 
 struct prefix_validation_status {
 	enum path_validation_states status;
-	const struct prefix *p;
+	struct prefix *p;
 };
 
 struct pval_arg {
@@ -141,7 +141,7 @@ static void *pfx_hash_alloc(void *arg) {
 	nprefix->p = prefix_new();
 
 	nprefix->status = pfx->status;
-	memcpy(nprefix->p, pfx->p, sizeof(*pfx->p));
+	*nprefix->p = *pfx->p;
 
 	return nprefix;
 }
@@ -306,7 +306,7 @@ static void bgp_path_validation_thread_init(void) {
 static bool pfx_hash_cmp(const void *a, const void *b) {
 	const struct prefix_validation_status *p_a = a;
 	const struct prefix_validation_status *p_b = b;
-	return prefix_cmp(p_a->p, p_b->p);
+	return prefix_same(p_a->p, p_b->p);
 }
 
 static unsigned int pfx_hash_key_make(const void *a) {
@@ -434,6 +434,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
 
 	if (hash_pfx) { /* if prefix is in cache */
+		fprintf(stderr, "Prefix in the cache\n");
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
 			return hash_pfx->status == PATH_VALIDATION_VALID
 				       ? RMAP_MATCH
