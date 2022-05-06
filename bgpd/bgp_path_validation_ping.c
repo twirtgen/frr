@@ -67,9 +67,12 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 	};
 
 	// socket()
-	ping_sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_IP);
+	ping_sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if (ping_sockfd < 0) {
-		perror("socket SOCK_RAW IPPROTO_ICMP");
+		const char *str_err = strerror(errno);
+		fprintf(stderr, "socket SOCK_RAW IPPROTO_ICMP: %s"
+			"(uid %u, euid %u, gid %u, egid %u)\n",
+			str_err, getuid(), geteuid(), getgid(), getegid());
 		goto end;
 	}
 
