@@ -14,6 +14,7 @@
 #include "lib/if.h"
 
 #include "bgpd/bgp_path_validation_ping.h"
+#include "privs.h"
 
 // Define the Packet Constants
 // ping packet size
@@ -22,6 +23,7 @@
 // Automatic port number
 // #define PORT_NO 0
 
+extern struct zebra_privs_t bgpd_privs;
 
 // ping packet structure
 struct ping_pkt {
@@ -67,39 +69,41 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 	};
 
 	// socket()
-	ping_sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
-	if (ping_sockfd < 0) {
-		const char *str_err = strerror(errno);
-		fprintf(stderr, "socket SOCK_RAW IPPROTO_ICMP: %s"
-			"(uid %u, euid %u, gid %u, egid %u)\n",
-			str_err, getuid(), geteuid(), getgid(), getegid());
-		goto end;
-	}
+	frr_with_privs(&bgpd_privs) {
+		ping_sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+		if (ping_sockfd < 0) {
+			const char *str_err = strerror(errno);
+			fprintf(stderr, "socket SOCK_RAW IPPROTO_ICMP: %s"
+				"(uid %u, euid %u, gid %u, egid %u)\n",
+				str_err, getuid(), geteuid(), getgid(), getegid());
+			goto end;
+		}
 
 
-	// set socket options at ip to TTL and value to 64,
-	// change to what you want by setting ttl_val
-	if (setsockopt(ping_sockfd, SOL_IP, IP_TTL, &ttl_val,
-		       sizeof(ttl_val)) != 0) {
-		printf("\nSetting socket options to TTL failed!\n");
-		goto end;
-	}
+		// set socket options at ip to TTL and value to 64,
+		// change to what you want by setting ttl_val
+		if (setsockopt(ping_sockfd, SOL_IP, IP_TTL, &ttl_val,
+			       sizeof(ttl_val)) != 0) {
+			printf("\nSetting socket options to TTL failed!\n");
+			goto end;
+		}
 
-	// set output interface
-	if (setsockopt(
-		    ping_sockfd, SOL_SOCKET, SO_BINDTODEVICE, iface_name,
-		    strnlen(iface_name, IF_NAMESIZE)) == -1) {
-		err = strerror(errno);
-		fprintf(stderr, "PING SO_BINDTODEVICE %s error: %s\n",
-			iface_name, err);
-		goto end;
-	}
+		// set output interface
+		if (setsockopt(
+			    ping_sockfd, SOL_SOCKET, SO_BINDTODEVICE, iface_name,
+			    strnlen(iface_name, IF_NAMESIZE)) == -1) {
+			err = strerror(errno);
+			fprintf(stderr, "PING SO_BINDTODEVICE %s error: %s\n",
+				iface_name, err);
+			goto end;
+		}
 
-	// setting timeout of recv setting
-	if (setsockopt(ping_sockfd, SOL_SOCKET, SO_RCVTIMEO,
-		       (const char *)&tv_out, sizeof tv_out) != 0) {
-		perror("Setsockopt SOL_SOCKET SO_RCVTIMEO");
-		goto end;
+		// setting timeout of recv setting
+		if (setsockopt(ping_sockfd, SOL_SOCKET, SO_RCVTIMEO,
+			       (const char *)&tv_out, sizeof tv_out) != 0) {
+			perror("Setsockopt SOL_SOCKET SO_RCVTIMEO");
+			goto end;
+		}
 	}
 
 	// send icmp packet

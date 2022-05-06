@@ -115,7 +115,6 @@ static int valid_path(struct sockaddr *saddr) {
 	inet_pton(AF_INET, "42.4.0.1", &sock_in.sin_addr);
 	/* end debug purpose */
 
-
 	switch (v_method) {
 	case VALIDATION_METHOD_TLS:
 		assert(0 && "TLS validation not yet supported !");
