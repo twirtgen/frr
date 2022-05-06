@@ -147,23 +147,25 @@ static void *pfx_hash_alloc(void *arg) {
 }
 
 static void validate_bgp_node(struct bgp_node *bgp_node, afi_t afi, safi_t safi) {
-	struct bgp_adj_in *ain;
+	struct bgp_path_info *path =
+		bgp_dest_get_bgp_path_info(bgp_node);
 
-	for (ain = bgp_node->adj_in; ain; ain = ain->next) {
-		struct bgp_path_info *path =
-			bgp_dest_get_bgp_path_info(bgp_node);
-		mpls_label_t *label = NULL;
-		uint32_t num_labels = 0;
-
-		if (path && path->extra) {
-			label = path->extra->label;
-			num_labels = path->extra->num_labels;
-		}
-		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_node),
-				 ain->addpath_rx_id, ain->attr, afi, safi,
-				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
-				 num_labels, 1, NULL);
+	if (!path) {
+		fprintf(stderr, "PATH NULL !\n");
+		return;
 	}
+
+	mpls_label_t *label = NULL;
+	uint32_t num_labels = 0;
+
+	if (path->extra) {
+		label = path->extra->label;
+		num_labels = path->extra->num_labels;
+	}
+	(void)bgp_update(path->peer, bgp_dest_get_prefix(bgp_node),
+			 path->addpath_rx_id, path->attr, afi, safi,
+			 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
+			 num_labels, 1, NULL);
 }
 
 static void validate_prefix(const struct prefix *pfx) {
