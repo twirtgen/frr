@@ -111,7 +111,8 @@ static int valid_path(struct sockaddr *saddr) {
 
 	sock_in.sin_family = AF_INET;
 	sock_in.sin_port = 0;
-	inet_pton(AF_INET, "10.0.0.6", &sock_in.sin_addr);
+	// comp5 emulated delay addr
+	inet_pton(AF_INET, "42.4.0.1", &sock_in.sin_addr);
 	/* end debug purpose */
 
 
