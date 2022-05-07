@@ -35,6 +35,7 @@
 #define PATH_VALIDATION_STRING "Validate path with TLS/PING server contained in large community\n"
 
 
+//#ifdef DEBUG
 #define print_prefix(file, pfx, fmt, ...) ({                              \
 	char pfx_str[PREFIX2STR_BUFFER + 1];                              \
 								          \
@@ -43,7 +44,9 @@
                                                                           \
 	fprintf(file, "[Prefix %18s] " fmt, pfx_str, ##__VA_ARGS__);     \
 })
-
+//#elifndef DEBUG
+//#define print_prefix(file, pfx, fmt, ...)
+//#endif
 
 
 enum validation_method {
@@ -175,7 +178,7 @@ static void validate_bgp_node(struct bgp_node *bgp_node, afi_t afi, safi_t safi)
 		pfx = bgp_dest_get_prefix(bgp_node);
 		print_prefix(stderr, pfx, "BEGIN Triggering BGP UPDATE !\n");
 
-		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_node),
+		(void)bgp_update(ain->peer, pfx,
 				 ain->addpath_rx_id, ain->attr, afi, safi,
 				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
 				 num_labels, 1, NULL);
@@ -353,17 +356,6 @@ void bgp_path_validation_run(void) {
 	frr_pthread_wait_running(bgp_pth_pval);
 }
 
-struct my_lcom {
-	uint32_t global_admin;
-	union {
-		struct {
-			uint32_t val1;
-			uint32_t val2;
-		};
-		uint64_t val64;
-	} val;
-};
-
 struct my_addr {
 	union {
 		struct {
@@ -399,21 +391,30 @@ static int match_large_communities(struct lcommunity *lcom,
 	int matchv6 = 0, matchv4 = 0;
 	int nb_com;
 	struct lcommunity_val *values;
-	struct my_lcom *current_lcom;
+	struct lcommunity_val *curr_val;
 	struct my_addr addr;
 
+	uint32_t global_adm;
+	uint64_t value;
 
 	nb_com = lcom->size ; // / LCOMMUNITY_SIZE;
 	values = (struct lcommunity_val *) lcom->val;
 	for (i = 0; i < nb_com; i++) {
-		current_lcom = (struct my_lcom *) values[i].val;
+		curr_val = &values[i];
 
-		if (current_lcom->global_admin == 0xFFFFFFFE) {
+		memcpy(&global_adm, curr_val->val, sizeof(uint32_t));
+		global_adm = be32toh(global_adm);
+
+		if (global_adm == 0xFFFFFFFE) {
 			matchv6 = 1;
-			addr.high = be64toh(current_lcom->val.val64);
-		} else if (current_lcom->global_admin == 0xFFFFFFFF) {
+			memcpy(&value, curr_val->val + sizeof(uint32_t),
+			       sizeof(value));
+			addr.high = be64toh(value);
+		} else if (global_adm == 0xFFFFFFFF) {
 			matchv4 = 1;
-			addr.lo = be64toh(current_lcom->val.val64);
+			memcpy(&value, curr_val->val + sizeof(uint32_t),
+			       sizeof(value));
+			addr.lo = be64toh(value);
 		}
 	}
 
@@ -464,14 +465,17 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 
 		}
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
+			fprintf(stderr, "RM valid\n");
 			return hash_pfx->status == PATH_VALIDATION_VALID
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
 		} else if (*path_validation_status == PATH_VALIDATION_INVALID) {
+			fprintf(stderr, "RM invalid\n");
 			return hash_pfx->status == PATH_VALIDATION_INVALID
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
 		} else {
+			fprintf(stderr, "RM other --> no match\n");
 			return RMAP_NOMATCH;
 		}
 	}
