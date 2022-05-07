@@ -197,19 +197,18 @@ static void validate_prefix(const struct prefix *pfx) {
 	}
 }
 
-#define print_prefix(file, pfx, fmt, ...) ({                    \
-	char pfx_str[PREFIX2STR_BUFFER+1];                      \
-                                                                \
-	memset(pfx_str, 0, sizeof(pfx_str));                    \
-	prefix2str(pfx, pfx_str, sizeof(pfx_str) -1);           \
-                                                                \
-	fprintf(file, "[Prefix %s] " ##fmt, pfx_str, ##__VA_ARGS__); \
+#define print_prefix(file, pfx, fmt, ...) ({                       \
+	char pfx_str[PREFIX2STR_BUFFER+1];                         \
+                                                                   \
+	memset(pfx_str, 0, sizeof(pfx_str));                       \
+	prefix2str(pfx, pfx_str, sizeof(pfx_str) -1);              \
+                                                                   \
+	fprintf(file, "[Prefix %s] " fmt, pfx_str, ##__VA_ARGS__); \
 })
 
 static int process_path_validation(struct thread *thread) {
 	struct pval_arg *arg;
 	char addr[45];
-	char pfx[PREFIX2STR_BUFFER];
 	uint16_t port;
 
 	//struct prefix_validation_status pval;
