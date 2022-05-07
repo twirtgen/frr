@@ -219,6 +219,14 @@ static void validate_prefix(const struct prefix *pfx) {
 }
 
 
+static int event_valid_path(struct thread *thread) {
+	struct prefix *pfx;
+	pfx = THREAD_ARG(thread);
+
+	validate_prefix(pfx);
+	return 0;
+}
+
 static int process_path_validation(struct thread *thread) {
 	struct pval_arg *arg;
 	char addr[45];
@@ -263,7 +271,9 @@ static int process_path_validation(struct thread *thread) {
 		arg->pfx_v->status = PATH_VALIDATION_INVALID;
 	}
 
-	validate_prefix(arg->pfx_v->p);
+	/* do the update in main thread */
+	thread_add_event(bm->master, event_valid_path, arg->pfx_v->p, 0, NULL);
+	//validate_prefix(arg->pfx_v->p);
 
 end:
 	free(arg);
@@ -446,26 +456,21 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
 
 	if (hash_pfx) { /* if prefix is in cache */
-		if (hash_pfx->status != PATH_VALIDATION_PENDING) {
-			print_prefix(stderr, prefix, "In cache! Validation status: %s\n",
-				     hash_pfx->status == PATH_VALIDATION_VALID ? "VALID" :
-				     hash_pfx->status == PATH_VALIDATION_INVALID ? "INVALID" :
-				     hash_pfx->status == PATH_VALIDATION_PENDING ? "PENDING" :
-				     hash_pfx->status == PATH_VALIDATION_NOT_REQUESTED ? "NOT REQUESTED": "???? BUG..." );
+		print_prefix(stderr, prefix, "In cache! Validation status: %s\n",
+			     hash_pfx->status == PATH_VALIDATION_VALID ? "VALID" :
+			     hash_pfx->status == PATH_VALIDATION_INVALID ? "INVALID" :
+			     hash_pfx->status == PATH_VALIDATION_PENDING ? "PENDING" :
+			     hash_pfx->status == PATH_VALIDATION_NOT_REQUESTED ? "NOT REQUESTED": "???? BUG..." );
 
-		}
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
-			fprintf(stderr, "RM valid\n");
 			return hash_pfx->status == PATH_VALIDATION_VALID
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
 		} else if (*path_validation_status == PATH_VALIDATION_INVALID) {
-			fprintf(stderr, "RM invalid\n");
 			return hash_pfx->status == PATH_VALIDATION_INVALID
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
 		} else if (*path_validation_status == PATH_VALIDATION_PENDING) {
-			fprintf(stderr, "RM pending\n");
 			return hash_pfx->status == PATH_VALIDATION_PENDING
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
