@@ -197,6 +197,15 @@ static void validate_prefix(const struct prefix *pfx) {
 	}
 }
 
+#define print_prefix(file, pfx, fmt, ...) ({                    \
+	char pfx_str[PREFIX2STR_BUFFER+1];                      \
+                                                                \
+	memset(pfx_str, 0, sizeof(pfx_str));                    \
+	prefix2str(pfx, pfx_str, sizeof(pfx_str) -1);           \
+                                                                \
+	fprintf(file, "[Prefix %s] " ##fmt, pfx_str, ##__VA_ARGS__); \
+})
+
 static int process_path_validation(struct thread *thread) {
 	struct pval_arg *arg;
 	char addr[45];
@@ -221,11 +230,10 @@ static int process_path_validation(struct thread *thread) {
 		fprintf(stderr, "Unrecognized address family !\n");
 		goto end;
 	}
-	fprintf(stderr, "Contacting %s server %s for prefix %s\n",
+	print_prefix(stderr, arg->pfx_v->p, "Contacting %s server %s\n",
 		v_method == VALIDATION_METHOD_PING ? "ping":
 		v_method == VALIDATION_METHOD_TLS ? "tls" : "???",
-		addr, prefix2str(arg->pfx_v->p, pfx, sizeof(pfx)));
-
+		addr);
 	/* todo refactor later (avoid magic numbers) */
 	port = v_method == VALIDATION_METHOD_PING ? 0 :
 	       v_method == VALIDATION_METHOD_TLS ? 443 : 0;
@@ -466,9 +474,12 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
+	print_prefix(stderr, prefix, "Triggered validation !");
+
 	/* put the prefix in cache as "pending" */
 	hash_pfx = hash_get(validated_pfx, &pfx_v, pfx_hash_alloc);
 	assert(hash_pfx != &pfx_v);
+	assert(prefix_same(prefix, hash_pfx->p));
 	hash_pfx->status = PATH_VALIDATION_PENDING;
 
 	arg = XMALLOC(MTYPE_PATH_VALIDATION_THREAD_ARG, sizeof(*arg));
