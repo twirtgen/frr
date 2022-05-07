@@ -444,7 +444,7 @@ module frr-bgp-route-map {
             description
               "Valid prefix";
           }
-          enum "unknown" {
+          enum "pending" {
             value 2;
             description
               "The prefix is marked for validation but is not yet verified";

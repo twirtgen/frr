@@ -451,8 +451,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 				     hash_pfx->status == PATH_VALIDATION_VALID ? "VALID" :
 				     hash_pfx->status == PATH_VALIDATION_INVALID ? "INVALID" :
 				     hash_pfx->status == PATH_VALIDATION_PENDING ? "PENDING" :
-				     hash_pfx->status == PATH_VALIDATION_NOT_REQUESTED ? "NOT REQUESTED":
-				     hash_pfx->status == PATH_VALIDATION_UNKNOWN ? "UNKNOWN": "???? BUG..." );
+				     hash_pfx->status == PATH_VALIDATION_NOT_REQUESTED ? "NOT REQUESTED": "???? BUG..." );
 
 		}
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
@@ -465,8 +464,12 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 			return hash_pfx->status == PATH_VALIDATION_INVALID
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
+		} else if (*path_validation_status == PATH_VALIDATION_PENDING) {
+			fprintf(stderr, "RM pending\n");
+			return hash_pfx->status == PATH_VALIDATION_PENDING
+				       ? RMAP_MATCH
+				       : RMAP_NOMATCH;
 		} else {
-			fprintf(stderr, "RM other --> no match (%d)\n", *path_validation_status);
 			return RMAP_NOMATCH;
 		}
 	}
@@ -508,7 +511,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	thread_add_event(bgp_pth_pval->master,
 			 process_path_validation, arg, 0, NULL);
 
-	if (*path_validation_status == PATH_VALIDATION_UNKNOWN)
+	if (*path_validation_status == PATH_VALIDATION_PENDING)
 		return RMAP_MATCH;
 	return RMAP_NOMATCH;
 }
@@ -524,8 +527,8 @@ static void *route_match_compile(const char *arg)
 		*path_validation_status = PATH_VALIDATION_VALID;
 	else if (strcmp(arg, "invalid") == 0)
 		*path_validation_status = PATH_VALIDATION_INVALID;
-	else if (strcmp(arg, "unknown") == 0)
-		*path_validation_status = PATH_VALIDATION_UNKNOWN;
+	else if (strcmp(arg, "pending") == 0)
+		*path_validation_status = PATH_VALIDATION_PENDING;
 	else
 		*path_validation_status = PATH_VALIDATION_NOT_REQUESTED;
 
@@ -677,12 +680,12 @@ DEFUN (no_path_validation_timeout,
 
 DEFUN_YANG (match_path_validation,
 	   match_path_validation_cmd,
-	   "match path-validation <valid|invalid|unknown|notrequested>",
+	   "match path-validation <valid|invalid|pending|notrequested>",
 	   MATCH_STR
 	   PATH_VALIDATION_STRING
 	   "Valid prefix, the TLS server responds\n"
 	   "Invalid prefix, the TLS servers is not valid\n"
-	   "Unknown prefix (path validation is pending and will be played)\n"
+	   "Pending prefix (path validation is pending and will be played)\n"
 	   "Path Validation not requested for this prefix\n")
 {
 	const char *xpath =
@@ -700,13 +703,14 @@ DEFUN_YANG (match_path_validation,
 
 DEFUN_YANG (no_match_path_validation,
 	   no_match_path_validation_cmd,
-	   "no match path-validation <valid|invalid|unknown>",
+	   "no match path-validation <valid|invalid|pending|notrequested>",
 	   NO_STR
 	   MATCH_STR
 	   PATH_VALIDATION_STRING
 	   "Valid prefix\n"
 	   "Invalid prefix\n"
-	   "The prefix is not in cache and will be validated async\n")
+	   "The prefix is not in cache and will be validated async\n"
+	   "Path Validation not requested for this prefix\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:path-validation']";
