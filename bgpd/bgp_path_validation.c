@@ -34,6 +34,18 @@
 
 #define PATH_VALIDATION_STRING "Validate path with TLS/PING server contained in large community\n"
 
+
+#define print_prefix(file, pfx, fmt, ...) ({                              \
+	char pfx_str[PREFIX2STR_BUFFER + 1];                              \
+								          \
+	memset(pfx_str, 0, sizeof(pfx_str));                              \
+	prefix2str(pfx, pfx_str, sizeof(pfx_str) - 1);                    \
+                                                                          \
+	fprintf(file, "[Prefix %18s] " fmt, pfx_str, ##__VA_ARGS__);     \
+})
+
+
+
 enum validation_method {
 	VALIDATION_METHOD_TLS,
 	VALIDATION_METHOD_PING,
@@ -148,6 +160,7 @@ static void *pfx_hash_alloc(void *arg) {
 
 static void validate_bgp_node(struct bgp_node *bgp_node, afi_t afi, safi_t safi) {
 	struct bgp_adj_in *ain;
+	const struct prefix *pfx;
 
 	for (ain = bgp_node->adj_in; ain; ain = ain->next) {
 		struct bgp_path_info *path =
@@ -159,10 +172,15 @@ static void validate_bgp_node(struct bgp_node *bgp_node, afi_t afi, safi_t safi)
 			label = path->extra->label;
 			num_labels = path->extra->num_labels;
 		}
+		pfx = bgp_dest_get_prefix(bgp_node);
+		print_prefix(stderr, pfx, "BEGIN Triggering BGP UPDATE !");
+
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_node),
 				 ain->addpath_rx_id, ain->attr, afi, safi,
 				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
 				 num_labels, 1, NULL);
+
+		print_prefix(stderr, pfx, "END Triggering BGP UPDATE !");
 	}
 }
 
@@ -197,14 +215,6 @@ static void validate_prefix(const struct prefix *pfx) {
 	}
 }
 
-#define print_prefix(file, pfx, fmt, ...) ({                              \
-	char pfx_str[PREFIX2STR_BUFFER + 1];                              \
-								          \
-	memset(pfx_str, 0, sizeof(pfx_str));                              \
-	prefix2str(pfx, pfx_str, sizeof(pfx_str) - 1);                    \
-                                                                          \
-	fprintf(file, "[Prefix %18s] " fmt, pfx_str, ##__VA_ARGS__);     \
-})
 
 static int process_path_validation(struct thread *thread) {
 	struct pval_arg *arg;
@@ -442,6 +452,13 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
 
 	if (hash_pfx) { /* if prefix is in cache */
+		print_prefix(stderr, prefix, "In cache! Validation status %s",
+			     hash_pfx->status == PATH_VALIDATION_VALID ? "VALID" :
+			     hash_pfx->status == PATH_VALIDATION_INVALID ? "INVALID" :
+			     hash_pfx->status == PATH_VALIDATION_PENDING ? "PENDING" :
+			     hash_pfx->status == PATH_VALIDATION_NOT_REQUESTED ? "NOT REQUESTED":
+			     hash_pfx->status == PATH_VALIDATION_UNKNOWN ? "UNKNOWN": "???? BUG..." );
+
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
 			return hash_pfx->status == PATH_VALIDATION_VALID
 				       ? RMAP_MATCH
@@ -475,10 +492,6 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	triggered_prefixes += 1;
-
-	print_prefix(stderr, prefix,
-		     "Triggered validation ! (nb trigger %lu)\n",
-		     triggered_prefixes);
 
 	/* put the prefix in cache as "pending" */
 	hash_pfx = hash_get(validated_pfx, &pfx_v, pfx_hash_alloc);
