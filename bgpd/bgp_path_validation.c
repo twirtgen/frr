@@ -197,13 +197,13 @@ static void validate_prefix(const struct prefix *pfx) {
 	}
 }
 
-#define print_prefix(file, pfx, fmt, ...) ({                       \
-	char pfx_str[PREFIX2STR_BUFFER+1];                         \
-                                                                   \
-	memset(pfx_str, 0, sizeof(pfx_str));                       \
-	prefix2str(pfx, pfx_str, sizeof(pfx_str) -1);              \
-                                                                   \
-	fprintf(file, "[Prefix %s] " fmt, pfx_str, ##__VA_ARGS__); \
+#define print_prefix(file, pfx, fmt, ...) ({                              \
+	char pfx_str[PREFIX2STR_BUFFER + 1];                              \
+								          \
+	memset(pfx_str, 0, sizeof(pfx_str));                              \
+	prefix2str(pfx, pfx_str, sizeof(pfx_str) - 1);                    \
+                                                                          \
+	fprintf(file, "[Prefix %18s] " fmt, pfx_str, ##__VA_ARGS__);     \
 })
 
 static int process_path_validation(struct thread *thread) {
@@ -436,6 +436,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	struct pval_arg *arg;
 	struct prefix_validation_status *hash_pfx;
 	struct prefix_validation_status pfx_v;
+	static unsigned long triggered_prefixes = 0;
 
 	pfx_v.p = prefix;
 	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
@@ -473,7 +474,11 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	print_prefix(stderr, prefix, "Triggered validation !");
+	triggered_prefixes += 1;
+
+	print_prefix(stderr, prefix,
+		     "Triggered validation ! (nb trigger %lu)\n",
+		     triggered_prefixes);
 
 	/* put the prefix in cache as "pending" */
 	hash_pfx = hash_get(validated_pfx, &pfx_v, pfx_hash_alloc);
