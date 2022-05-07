@@ -35,7 +35,7 @@
 #define PATH_VALIDATION_STRING "Validate path with TLS/PING server contained in large community\n"
 
 
-//#ifdef DEBUG
+#ifdef TW_DEBUG
 #define print_prefix(file, pfx, fmt, ...) ({                              \
 	char pfx_str[PREFIX2STR_BUFFER + 1];                              \
 								          \
@@ -44,9 +44,9 @@
                                                                           \
 	fprintf(file, "[Prefix %18s] " fmt, pfx_str, ##__VA_ARGS__);     \
 })
-//#elifndef DEBUG
-//#define print_prefix(file, pfx, fmt, ...)
-//#endif
+#elifndef TW_DEBUG
+#define print_prefix(file, pfx, fmt, ...)
+#endif
 
 
 enum validation_method {
