@@ -454,13 +454,15 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
 
 	if (hash_pfx) { /* if prefix is in cache */
-		print_prefix(stderr, prefix, "In cache! Validation status: %s\n",
-			     hash_pfx->status == PATH_VALIDATION_VALID ? "VALID" :
-			     hash_pfx->status == PATH_VALIDATION_INVALID ? "INVALID" :
-			     hash_pfx->status == PATH_VALIDATION_PENDING ? "PENDING" :
-			     hash_pfx->status == PATH_VALIDATION_NOT_REQUESTED ? "NOT REQUESTED":
-			     hash_pfx->status == PATH_VALIDATION_UNKNOWN ? "UNKNOWN": "???? BUG..." );
+		if (hash_pfx->status != PATH_VALIDATION_PENDING) {
+			print_prefix(stderr, prefix, "In cache! Validation status: %s\n",
+				     hash_pfx->status == PATH_VALIDATION_VALID ? "VALID" :
+				     hash_pfx->status == PATH_VALIDATION_INVALID ? "INVALID" :
+				     hash_pfx->status == PATH_VALIDATION_PENDING ? "PENDING" :
+				     hash_pfx->status == PATH_VALIDATION_NOT_REQUESTED ? "NOT REQUESTED":
+				     hash_pfx->status == PATH_VALIDATION_UNKNOWN ? "UNKNOWN": "???? BUG..." );
 
+		}
 		if (*path_validation_status == PATH_VALIDATION_VALID) {
 			return hash_pfx->status == PATH_VALIDATION_VALID
 				       ? RMAP_MATCH
