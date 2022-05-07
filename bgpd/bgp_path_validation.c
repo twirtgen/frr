@@ -173,14 +173,14 @@ static void validate_bgp_node(struct bgp_node *bgp_node, afi_t afi, safi_t safi)
 			num_labels = path->extra->num_labels;
 		}
 		pfx = bgp_dest_get_prefix(bgp_node);
-		print_prefix(stderr, pfx, "BEGIN Triggering BGP UPDATE !");
+		print_prefix(stderr, pfx, "BEGIN Triggering BGP UPDATE !\n");
 
 		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_node),
 				 ain->addpath_rx_id, ain->attr, afi, safi,
 				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
 				 num_labels, 1, NULL);
 
-		print_prefix(stderr, pfx, "END Triggering BGP UPDATE !");
+		print_prefix(stderr, pfx, "END Triggering BGP UPDATE !\n");
 	}
 }
 
@@ -253,8 +253,10 @@ static int process_path_validation(struct thread *thread) {
 
 	if (valid_path((struct sockaddr *)&arg->saddr)) {
 		/* the path is valid */
+		print_prefix(stderr, arg->pfx_v->p, "Decision: VALID !\n");
 		arg->pfx_v->status = PATH_VALIDATION_VALID;
 	} else {
+		print_prefix(stderr, arg->pfx_v->p, "Decision: INVALID!\n");
 		arg->pfx_v->status = PATH_VALIDATION_INVALID;
 	}
 
@@ -452,7 +454,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	hash_pfx = hash_get(validated_pfx, &pfx_v, NULL);
 
 	if (hash_pfx) { /* if prefix is in cache */
-		print_prefix(stderr, prefix, "In cache! Validation status %s",
+		print_prefix(stderr, prefix, "In cache! Validation status: %s\n",
 			     hash_pfx->status == PATH_VALIDATION_VALID ? "VALID" :
 			     hash_pfx->status == PATH_VALIDATION_INVALID ? "INVALID" :
 			     hash_pfx->status == PATH_VALIDATION_PENDING ? "PENDING" :
