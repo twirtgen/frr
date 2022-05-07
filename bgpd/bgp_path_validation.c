@@ -356,16 +356,6 @@ void bgp_path_validation_run(void) {
 	frr_pthread_wait_running(bgp_pth_pval);
 }
 
-struct my_addr {
-	union {
-		struct {
-			uint64_t high;
-			uint64_t lo;
-		};
-		uint32_t v4[4];
-	};
-};
-
 
 #define hip6tobe(ip6) ({\
     struct in6_addr ip6be_;                    \
@@ -392,10 +382,11 @@ static int match_large_communities(struct lcommunity *lcom,
 	int nb_com;
 	struct lcommunity_val *values;
 	struct lcommunity_val *curr_val;
-	struct my_addr addr;
 
 	uint32_t global_adm;
 	uint64_t value;
+	uint64_t hi;
+	uint64_t lo;
 
 	nb_com = lcom->size ; // / LCOMMUNITY_SIZE;
 	values = (struct lcommunity_val *) lcom->val;
@@ -409,12 +400,12 @@ static int match_large_communities(struct lcommunity *lcom,
 			matchv6 = 1;
 			memcpy(&value, curr_val->val + sizeof(uint32_t),
 			       sizeof(value));
-			addr.high = be64toh(value);
+			hi = be64toh(value);
 		} else if (global_adm == 0xFFFFFFFF) {
 			matchv4 = 1;
 			memcpy(&value, curr_val->val + sizeof(uint32_t),
 			       sizeof(value));
-			addr.lo = be64toh(value);
+			lo = be64toh(value);
 		}
 	}
 
@@ -426,12 +417,12 @@ static int match_large_communities(struct lcommunity *lcom,
 		/* ipv4 addr */
 		struct sockaddr_in *addr4 = (struct sockaddr_in *) saddr;
 		addr4->sin_family = AF_INET;
-		addr4->sin_addr.s_addr = htobe32(addr.v4[3]);
+		addr4->sin_addr.s_addr = htobe32(lo & 0xFFFFFFFF);
 	} else {
 		/* ipv6 addr */
 		struct sockaddr_in6 *addr6  = (struct sockaddr_in6 *) saddr;
 		addr6->sin6_family = AF_INET6;
-		addr6->sin6_addr = hip6tobe(&addr);
+		//addr6->sin6_addr =  hip6tobe(&addr);
 	}
 
 	return matchv4;
@@ -475,7 +466,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 				       ? RMAP_MATCH
 				       : RMAP_NOMATCH;
 		} else {
-			fprintf(stderr, "RM other --> no match\n");
+			fprintf(stderr, "RM other --> no match (%d)\n", *path_validation_status);
 			return RMAP_NOMATCH;
 		}
 	}
