@@ -44,7 +44,7 @@
                                                                           \
 	fprintf(file, "[Prefix %18s] " fmt, pfx_str, ##__VA_ARGS__);     \
 })
-#elifndef TW_DEBUG
+#else
 #define print_prefix(file, pfx, fmt, ...)
 #endif
 
