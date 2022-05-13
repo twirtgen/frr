@@ -2573,6 +2573,9 @@ if test "$localstatedir" = '${prefix}/var'; then
 else
   frr_statedir=${localstatedir}
 fi
+for I in 1 2 3 4 5 6 7 8 9 10; do
+        eval frr_statedir="\"$frr_statedir\""
+done
 if test "$frr_statedir" = "/dev/null"; then
     AC_MSG_ERROR([STATE DIRECTORY NOT FOUND! FIX OR SPECIFY --localstatedir!])
 fi
