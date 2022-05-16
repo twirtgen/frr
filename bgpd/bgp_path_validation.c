@@ -287,7 +287,7 @@ static int process_path_validation(struct thread *thread) {
 		fprintf(stderr, "Set port failed !");
 	}
 
-	if (valid_path((struct sockaddr *)&arg->saddr)) {
+	if (valid_path((struct sockaddr *)&arg->saddr, arg->iface_name)) {
 		/* the path is valid */
 		print_prefix(stderr, arg->pfx_v->p, "Decision: VALID !\n");
 		arg->pfx_v->status = PATH_VALIDATION_VALID;
