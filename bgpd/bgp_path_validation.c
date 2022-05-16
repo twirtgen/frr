@@ -131,6 +131,9 @@ static inline const char *get_interface_name(union sockunion *su, char *cpy_buf,
 	}
 
 	for (iface = ifa; iface != NULL; iface = iface->ifa_next) {
+		if (!iface->ifa_addr)
+			continue ;
+
 		su_if = (union sockunion *) iface->ifa_addr;
 		if (sockunion_cmp(su_if, su) == 0) {
 			strncpy(cpy_buf, iface->ifa_name, cpy_buf_len);
