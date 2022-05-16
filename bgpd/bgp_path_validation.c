@@ -475,6 +475,7 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	struct pval_arg *arg;
 	struct prefix_validation_status *hash_pfx;
 	struct prefix_validation_status pfx_v;
+	union sockunion *local_addr;
 	static unsigned long triggered_prefixes = 0;
 
 	pfx_v.p = prefix;
@@ -538,7 +539,13 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	};
 
 	/* retrieve addr of the peer who send the route */
-	if (get_interface_name(path->peer->su_local, arg->iface_name,
+	if (!path->peer->su_local) {
+		local_addr = sockunion_getsockname(path->peer->fd);
+	} else  {
+		local_addr = path->peer->su_local;
+	}
+
+	if (get_interface_name(local_addr, arg->iface_name,
 			   sizeof(arg->iface_name)) == NULL) {
 		print_prefix(stderr, prefix, "FATAL ! Unable to get origin"
 			     "interface !\n");
