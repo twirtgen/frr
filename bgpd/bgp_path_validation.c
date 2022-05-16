@@ -63,6 +63,7 @@ struct prefix_validation_status {
 struct pval_arg {
 	struct sockaddr_storage saddr;
 	struct prefix_validation_status *pfx_v;
+	char iface_name[IF_NAMESIZE + 1];
 };
 
 static struct frr_pthread *bgp_pth_pval = NULL;
@@ -119,7 +120,31 @@ static int set_port(struct sockaddr *saddr, uint16_t port) {
 }
 
 
-static int valid_path(struct sockaddr *saddr) {
+static inline const char *get_interface_name(union sockunion *su, char *cpy_buf,
+					     size_t cpy_buf_len) {
+	struct ifaddrs *ifa = NULL;
+	struct ifaddrs *iface = NULL;
+	char *if_name = NULL;
+	union sockunion *su_if;
+	if (getifaddrs(&ifa) != 0) {
+		goto end;
+	}
+
+	for (iface = ifa; iface != NULL; iface = iface->ifa_next) {
+		su_if = (union sockunion *) iface->ifa_addr;
+		if (sockunion_cmp(su_if, su) == 0) {
+			strncpy(cpy_buf, iface->ifa_name, cpy_buf_len);
+			if_name = iface->ifa_name;
+			goto end;
+		}
+	}
+
+end:
+	if (ifa) freeifaddrs(ifa);
+	return if_name;
+}
+
+static int valid_path(struct sockaddr *saddr, const char *iface) {
 
 	/* debug purpose */
 	struct sockaddr_in sock_in;
@@ -136,7 +161,7 @@ static int valid_path(struct sockaddr *saddr) {
 		break;
 	case VALIDATION_METHOD_PING:
 		return send_ping( &sock_in /*(struct sockaddr_in *)saddr*/, timeout_ms * 1000,
-			  retries_number, out_iface) == 0;
+			  retries_number, iface) == 0;
 
 		break;
 	case VALIDATION_METHOD_MAX:
@@ -511,6 +536,13 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 		.pfx_v = hash_pfx,
 		.saddr = addr,
 	};
+
+	/* retrieve addr of the peer who send the route */
+	if (get_interface_name(path->peer->su_local, arg->iface_name,
+			   sizeof(arg->iface_name)) == NULL) {
+		print_prefix(stderr, prefix, "FATAL ! Unable to get origin"
+			     "interface !\n");
+	}
 
 	/* there is a match, push the sockaddr to a queue for validation */
 	thread_add_event(bgp_pth_pval->master,
