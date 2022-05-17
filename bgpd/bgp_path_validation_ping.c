@@ -136,8 +136,7 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 		addr_len = sizeof(r_addr);
 
 		if (recvfrom(ping_sockfd, &pckt, sizeof(pckt), 0,
-			     (struct sockaddr *)&r_addr, &addr_len) > 0 ||
-		    msg_count <= 1) {
+			     (struct sockaddr *)&r_addr, &addr_len) > 0) {
 			// if packet was not sent, don't receive
 			if (flag) {
 				if (!(pckt.hdr.type == 69 &&
@@ -153,7 +152,7 @@ int send_ping(struct sockaddr_in *ping_addr, unsigned int timeout_us,
 		retries -= 1;
 	}
 
-	ret = 0;
+	ret = ok == 1 ? 0 : -1;
 
 end:
 	if (ping_sockfd >= 0) {
