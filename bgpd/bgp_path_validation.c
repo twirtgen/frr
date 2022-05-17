@@ -136,8 +136,7 @@ static inline const char *get_interface_name(union sockunion *su, char *cpy_buf,
 
 		su_if = (union sockunion *) iface->ifa_addr;
 		if (sockunion_cmp(su_if, su) == 0) {
-			strncpy(cpy_buf, iface->ifa_name, cpy_buf_len);
-			if_name = iface->ifa_name;
+			if_name = strncpy(cpy_buf, iface->ifa_name, cpy_buf_len);
 			goto end;
 		}
 	}
@@ -549,8 +548,8 @@ route_match(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	if (get_interface_name(local_addr, arg->iface_name,
-			   sizeof(arg->iface_name)) == NULL) {
-		print_prefix(stderr, prefix, "FATAL ! Unable to get origin"
+			   sizeof(arg->iface_name) - 1) == NULL) {
+		fprintf(stderr, "FATAL ! Unable to get origin"
 			     "interface !\n");
 	}
 
